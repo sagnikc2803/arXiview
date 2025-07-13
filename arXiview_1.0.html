@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>arXiview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* Base styles for scrollbar and font */
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s ease, color 0.3s ease; /* Smooth theme transition */
+        }
+        /* Custom scrollbar for light mode */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* gray-300 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* gray-400 */
+        }
+
+        /* Custom scrollbar for dark mode */
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+            background: #333; /* Darker track for dark mode */
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4a5568; /* Darker thumb for dark mode */
+            border-radius: 10px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* Even darker thumb on hover */
+        }
+        /* Styles for BibTeX generator elements */
+        .bibtex-input, .bibtex-output {
+            border-radius: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+        }
+        .bibtex-input:focus, .bibtex-output:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .bibtex-output {
+            min-height: 150px;
+            resize: vertical;
+            font-family: monospace;
+            background-color: #f9fafb;
+            color: #374151;
+        }
+        .dark .bibtex-input, .dark .bibtex-output {
+            background-color: #4a5568;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .dark .bibtex-input:focus, .dark .bibtex-output:focus {
+            border-color: #63b3ed;
+            box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.3);
+        }
+        .bibtex-message-box {
+            background-color: #e0f2fe;
+            border: 1px solid #90cdf4;
+            color: #2b6cb0;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            word-break: break-all;
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+        .bibtex-message-box.error {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            color: #b91c1c;
+        }
+        .dark .bibtex-message-box {
+            background-color: #2c5282;
+            border-color: #4299e1;
+            color: #ebf8ff;
+        }
+        .dark .bibtex-message-box.error {
+            background-color: #9b2c2c;
+            border-color: #e53e3e;
+            color: #fed7d7;
+        }
+
+        /* Font Scaling Classes */
+        html.font-small { font-size: 14px; }
+        html.font-medium { font-size: 16px; } /* Default */
+        html.font-large { font-size: 18px; }
+
+        /* Font Family Classes */
+        html.font-serif { font-family: 'Georgia', serif; }
+        html.font-sans-serif { font-family: 'Inter', sans-serif; }
+        html.font-monospace { font-family: 'Courier New', monospace; }
+
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // Define arXiv physics fields and their codes, including subcategories
+        const physicsFields = [
+            {
+                name: 'Astrophysics',
+                code: 'astro-ph',
+                subcategories: [
+                    { name: 'Astrophysics of Galaxies', code: 'astro-ph.GA' },
+                    { name: 'Cosmology and Nongalactic Astrophysics', code: 'astro-ph.CO' },
+                    { name: 'Earth and Planetary Astrophysics', code: 'astro-ph.EP' },
+                    { name: 'High Energy Astrophysical Phenomena', code: 'astro-ph.HE' },
+                    { name: 'Instrumentation and Methods for Astrophysics', code: 'astro-ph.IM' },
+                    { name: 'Solar and Stellar Astrophysics', code: 'astro-ph.SR' }
+                ]
+            },
+            {
+                name: 'Condensed Matter',
+                code: 'cond-mat',
+                subcategories: [
+                    { name: 'Disordered Systems and Neural Networks', code: 'cond-mat.dis-nn' },
+                    { name: 'Materials Science', code: 'cond-mat.mtrl-sci' },
+                    { name: 'Mesoscale and Nanoscale Physics', code: 'cond-mat.mes-hall' },
+                    { name: 'Other Condensed Matter', code: 'cond-mat.other' },
+                    { name: 'Quantum Gases', code: 'cond-mat.quant-gas' },
+                    { name: 'Soft Condensed Matter', code: 'cond-mat.soft' },
+                    { name: 'Statistical Mechanics', code: 'cond-mat.stat-mech' },
+                    { name: 'Strongly Correlated Electrons', code: 'cond-mat.str-el' },
+                    { name: 'Superconductivity', code: 'cond-mat.supr-con' }
+                ]
+            },
+            { name: 'General Relativity and Quantum Cosmology', code: 'gr-qc' },
+            { name: 'High Energy Physics - Experiment', code: 'hep-ex' },
+            { name: 'High Energy Physics - Lattice', code: 'hep-lat' },
+            { name: 'High Energy Physics - Phenomenology', code: 'hep-ph' },
+            { name: 'High Energy Physics - Theory', code: 'hep-th' },
+            { name: 'Mathematical Physics', code: 'math-ph' },
+            {
+                name: 'Nonlinear Sciences',
+                code: 'nlin',
+                subcategories: [
+                    { name: 'Adaptation and Self-Organizing Systems', code: 'nlin.AO' },
+                    { name: 'Cellular Automata and Lattice Gases', code: 'nlin.CG' },
+                    { name: 'Chaotic Dynamics', code: 'nlin.CD' },
+                    { name: 'Exactly Solvable and Integrable Systems', code: 'nlin.SI' },
+                    { name: 'Pattern Formation and Solitons', code: 'nlin.PS' }
+                ]
+            },
+            { name: 'Nuclear Experiment', code: 'nucl-ex' },
+            { name: 'Nuclear Theory', code: 'nucl-th' },
+            {
+                name: 'Physics (General)',
+                code: 'physics',
+                subcategories: [
+                    { name: 'Accelerator Physics', code: 'physics.acc-ph' },
+                    { name: 'Applied Physics', code: 'physics.app-ph' },
+                    { name: 'Atmospheric and Oceanic Physics', code: 'physics.atm-clus' },
+                    { name: 'Atomic and Molecular Clusters', code: 'physics.atom-ph' },
+                    { name: 'Atomic Physics', code: 'physics.atom-ph' },
+                    { name: 'Biological Physics', code: 'physics.bio-ph' },
+                    { name: 'Chemical Physics', code: 'physics.chem-ph' },
+                    { name: 'Classical Physics', code: 'physics.class-ph' },
+                    { name: 'Computational Physics', code: 'physics.comp-ph' },
+                    { name: 'Data Analysis, Statistics and Probability', code: 'physics.data-an' },
+                    { name: 'Fluid Dynamics', code: 'physics.flu-dyn' },
+                    { name: 'General Physics', code: 'physics.gen-ph' },
+                    { name: 'Geophysics', code: 'physics.geo-ph' },
+                    { name: 'History and Philosophy of Physics', code: 'physics.hist-ph' },
+                    { name: 'Instrumentation and Detectors', code: 'physics.ins-det' },
+                    { name: 'Medical Physics', code: 'physics.med-ph' },
+                    { name: 'Optics', code: 'physics.optics' },
+                    { name: 'Physics and Society', code: 'physics.soc-ph' },
+                    { name: 'Physics Education', code: 'physics.ed-ph' },
+                    { name: 'Plasma Physics', code: 'physics.plasm-ph' },
+                    { name: 'Popular Physics', code: 'physics.pop-ph' },
+                    { name: 'Space Physics', code: 'physics.space-ph' }
+                ]
+            },
+            { name: 'Quantum Physics', code: 'quant-ph' },
+        ];
+
+
+        // Main App component
+        const App = () => {
+            const [topic, setTopic] = useState(''); // For the keyword search input
+            const [authorTopic, setAuthorTopic] = useState(''); // For the author search input
+            const [selectedMainField, setSelectedMainField] = useState(''); // For the main category dropdown
+            const [selectedSubcategory, setSelectedSubcategory] = useState(''); // For the subcategory dropdown
+            const [publications, setPublications] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [showError, setShowError] = useState(false); // State to control error message visibility
+            const [currentErrorMessage, setCurrentErrorMessage] = useState(null); // Actual error message content
+            const [isDarkMode, setIsDarkMode] = useState(() => {
+                const savedTheme = localStorage.getItem('theme');
+                return savedTheme === 'dark';
+            });
+            const [hasSearched, setHasSearched] = useState(false); // New state to track if a search has been attempted
+            const [currentPdfUrl, setCurrentPdfUrl] = useState(null); // State for the PDF viewer URL
+            const [selectedImageUrl, setSelectedImageUrl] = useState(null); // State for the image preview URL
+            const [resolution, setResolution] = useState('1080p'); // State for selected resolution
+            const [fontSizeScale, setFontSizeScale] = useState('medium'); // 'small', 'medium', 'large'
+            const [fontFamily, setFontFamily] = useState('monospace'); // Default to 'monospace'
+
+
+            // BibTeX Generator states
+            const [bibtexUrlInput, setBibtexUrlInput] = useState('');
+            const [bibtexOutput, setBibtexOutput] = useState('');
+            const [bibtexMessage, setBibtexMessage] = useState('');
+            const [isBibtexError, setIsBibtexError] = useState(false);
+            // BibTeX generator is always shown, so no state for showBibtexGenerator
+
+            // Pagination states
+            const [currentPage, setCurrentPage] = useState(1);
+            const [totalResults, setTotalResults] = useState(0);
+            const resultsPerPage = 50; // Fixed number of articles per page
+            const totalPages = Math.ceil(totalResults / resultsPerPage);
+
+            // Effect to apply dark mode class to body and save preference
+            useEffect(() => {
+                if (isDarkMode) {
+                    document.body.classList.add('dark', 'bg-gray-900', 'text-gray-100');
+                    document.body.classList.remove('bg-gray-50', 'text-gray-800');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark', 'bg-gray-900', 'text-gray-100');
+                    document.body.classList.add('bg-gray-50', 'text-gray-800');
+                    localStorage.setItem('theme', 'light');
+                }
+            }, [isDarkMode]);
+
+            // Effect to apply font size scale to HTML element
+            useEffect(() => {
+                const html = document.documentElement;
+                html.classList.remove('font-small', 'font-medium', 'font-large');
+                html.classList.add(`font-${fontSizeScale}`);
+            }, [fontSizeScale]);
+
+            // Effect to apply font family to HTML element
+            useEffect(() => {
+                const html = document.documentElement;
+                html.classList.remove('font-serif', 'font-sans-serif', 'font-monospace');
+                html.classList.add(`font-${fontFamily}`);
+            }, [fontFamily]);
+
+
+            // Effect for auto-hiding error messages
+            useEffect(() => {
+                if (showError && currentErrorMessage) {
+                    const timer = setTimeout(() => {
+                        setShowError(false);
+                        setCurrentErrorMessage(null); // Clear the message after hiding
+                    }, 2000); // 2 seconds
+
+                    return () => clearTimeout(timer); // Cleanup on unmount or dependency change
+                }
+            }, [showError, currentErrorMessage]);
+
+            // Effect for auto-hiding BibTeX messages
+            useEffect(() => {
+                if (bibtexMessage) {
+                    const timer = setTimeout(() => {
+                        setBibtexMessage('');
+                        setIsBibtexError(false);
+                    }, 2000); // 2 seconds
+
+                    return () => clearTimeout(timer); // Cleanup on unmount or dependency change
+                }
+            }, [bibtexMessage]);
+
+            // Function to set error message and trigger auto-hide
+            const setErrorAndShow = (msg, isError = false) => { // Added isError parameter
+                setCurrentErrorMessage(isError ? `${msg}` : msg); // Removed "arXiview says:" prefix
+                setShowError(true);
+            };
+
+            // Function to set BibTeX message and trigger auto-hide
+            const setBibtexMessageAndShow = (msg, isError = false) => {
+                setBibtexMessage(isError ? `${msg}` : msg); // Removed "arXiview says:" prefix
+                setIsBibtexError(isError);
+            };
+
+            // Function to fetch publications from arXiv API
+            const fetchPublications = useCallback(async () => {
+                setHasSearched(true); // Mark that a search has been attempted
+                // No longer clearing PDF/Image viewer here, they can coexist
+
+                let categoryPart = '';
+                let textSearchPart = '';
+                let currentSearchQuery = '';
+
+                // Determine the category part of the query
+                if (selectedSubcategory) {
+                    categoryPart = `cat:${selectedSubcategory}`;
+                } else if (selectedMainField) {
+                    categoryPart = `cat:${selectedMainField}`;
+                }
+
+                // Determine the text search part of the query
+                if (authorTopic.trim()) {
+                    // Strict author search using 'au:' prefix for exact match in author field
+                    textSearchPart = `au:"${authorTopic.trim()}"`;
+                } else if (topic.trim()) {
+                    // Handle comma-separated topics as individual exact phrases
+                    const topics = topic.trim().split(',').map(t => `all:"${t.trim()}"`).join(' OR ');
+                    textSearchPart = topics;
+                }
+
+                // Combine parts based on priority
+                if (categoryPart && textSearchPart) {
+                    // If a category is selected AND text is entered, combine them
+                    currentSearchQuery = `${categoryPart} AND (${textSearchPart})`;
+                } else if (categoryPart) {
+                    // Only category search
+                    currentSearchQuery = categoryPart;
+                } else if (textSearchPart) {
+                    // Only text search (topic or author)
+                    currentSearchQuery = textSearchPart;
+                }
+
+                if (!currentSearchQuery) {
+                    setErrorAndShow("Please enter a topic, author, or select a field to search for.", true); // Pass true for error
+                    setPublications([]);
+                    setTotalResults(0);
+                    setLoading(false);
+                    return;
+                }
+
+                setLoading(true);
+                setErrorAndShow(null); // Clear previous error before new search
+                setPublications([]); // Clear previous results
+
+                const startIndex = (currentPage - 1) * resultsPerPage;
+
+                try {
+                    // Ensure the query is correctly formatted for URL encoding
+                    const encodedQuery = encodeURIComponent(currentSearchQuery);
+                    const apiUrl = `https://export.arxiv.org/api/query?search_query=${encodedQuery}&start=${startIndex}&max_results=${resultsPerPage}&sortBy=submittedDate&sortOrder=descending`;
+
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const text = await response.text();
+
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(text, "text/xml");
+
+                    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                        throw new Error("Error parsing XML from arXiv. The topic might be too broad or specific.");
+                    }
+
+                    // Get total results for pagination
+                    const totalResultsElement = xmlDoc.getElementsByTagName("opensearch:totalResults")[0];
+                    const newTotalResults = totalResultsElement ? parseInt(totalResultsElement.textContent, 10) : 0;
+                    setTotalResults(newTotalResults);
+
+                    const entries = xmlDoc.getElementsByTagName("entry");
+                    const fetchedPublications = [];
+
+                    for (let i = 0; i < entries.length; i++) {
+                        const entry = entries[i];
+                        const title = entry.getElementsByTagName("title")[0]?.textContent || 'N/A';
+                        const abstract = entry.getElementsByTagName("summary")[0]?.textContent || 'No abstract available.';
+                        
+                        const pdfLinkElement = Array.from(entry.getElementsByTagName("link")).find(
+                            link => link.getAttribute("title") === "pdf"
+                        );
+                        const pdfLink = pdfLinkElement?.getAttribute("href") || '#';
+
+                        const arxivAbstractLink = entry.getElementsByTagName("id")[0]?.textContent || '#';
+                        let arxivIdShort = ''; // Store the short arXiv ID
+                        if (arxivAbstractLink && arxivAbstractLink !== '#') {
+                            const match = arxivAbstractLink.match(/(\d{4}\.\d{5})(v\d+)?$/);
+                            if (match && match[1]) {
+                                arxivIdShort = match[1];
+                            }
+                        }
+                        // Construct the arXiv DOI link as per user request
+                        const arxivDoiLink = arxivIdShort ? `https://doi.org/10.48550/arXiv.${arxivIdShort}` : '#';
+
+
+                        const publisherLinkElement = Array.from(entry.getElementsByTagName("link")).find(
+                            link => link.getAttribute("rel") === "related" && link.getAttribute("type") === "text/html"
+                        );
+                        // Ensure publisherLink is a valid URL or null, not just '#'
+                        const publisherLink = publisherLinkElement && publisherLinkElement.getAttribute("href") && publisherLinkElement.getAttribute("href") !== '#' ? publisherLinkElement.getAttribute("href") : null;
+
+
+                        const journalRefElement = entry.getElementsByTagName("arxiv:journal_ref")[0];
+                        const journalRef = journalRefElement ? journalRefElement.textContent.trim() : null;
+
+                        // Extract DOI
+                        const doiElement = entry.getElementsByTagName("arxiv:doi")[0];
+                        const doi = doiElement ? doiElement.textContent.trim() : null;
+
+                        const authors = Array.from(entry.getElementsByTagName("author")).map(
+                            author => author.getElementsByTagName("name")[0]?.textContent || 'Unknown Author'
+                        );
+
+                        const publishedDateRaw = entry.getElementsByTagName("published")[0]?.textContent;
+                        const publishedDate = publishedDateRaw ? new Date(publishedDateRaw).toLocaleDateString('en-US', {
+                            year: 'numeric', month: 'long', day: 'numeric'
+                        }) : 'N/A';
+
+                        const imageThumbnails = [];
+                        if (arxivIdShort) { // Use arxivIdShort to construct image URLs
+                            for (let i = 1; i <= 15; i++) {
+                                const imageUrl = `https://arxiv.org/html/${arxivIdShort}/x${i}.png`;
+                                imageThumbnails.push(imageUrl);
+                            }
+                        }
+
+                        fetchedPublications.push({
+                            title: title.replace(/\s+/g, ' ').trim(),
+                            authors,
+                            abstract: abstract.replace(/\s+/g, ' ').trim(),
+                            pdfLink,
+                            htmlLink: arxivIdShort ? `https://arxiv.org/html/${arxivIdShort}` : '#', // HTML link to arxiv.org/html
+                            arxivAbstractLink, // Original arxiv.org/abs link
+                            publisherLink, // Changed from publishedLink
+                            journalRef,
+                            doi, // Publisher DOI
+                            arxivId: arxivIdShort, // Short arXiv ID (e.g., 2507.07926)
+                            arxivDoiLink, // New: Full arXiv DOI link
+                            publishedDate,
+                            isAbstractExpanded: false,
+                            imageThumbnails,
+                        });
+                    }
+                    setPublications(fetchedPublications);
+
+                    if (fetchedPublications.length === 0 && newTotalResults > 0) {
+                        setErrorAndShow("No publications found on this page. Try navigating to another page.", true);
+                    } else if (newTotalResults === 0) {
+                        setErrorAndShow("No publications found for this query. Try a different keyword, author, or field.", true);
+                    }
+
+                } catch (e) {
+                    console.error("Failed to fetch publications:", e);
+                    setErrorAndShow(`Failed to fetch publications: ${e.message}. Please try again.`, true);
+                } finally {
+                    setLoading(false);
+                }
+            }, [topic, authorTopic, selectedMainField, selectedSubcategory, currentPage, resultsPerPage]);
+
+            // Effect to trigger fetch when relevant search states change
+            useEffect(() => {
+                // Only auto-fetch if a search has been initiated (either via text input or dropdown)
+                // or if a dropdown selection is made.
+                if (hasSearched || selectedMainField || selectedSubcategory || topic.trim() || authorTopic.trim()) {
+                    fetchPublications();
+                }
+            }, [fetchPublications, hasSearched, selectedMainField, selectedSubcategory, topic, authorTopic]);
+
+            // Pagination handlers
+            const goToPreviousPage = () => {
+                if (currentPage > 1) {
+                    setCurrentPage(prevPage => prevPage - 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+
+            const goToNextPage = () => {
+                if (currentPage < totalPages) {
+                    setCurrentPage(prevPage => prevPage + 1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+
+            const goToPage = (pageNumber) => {
+                if (pageNumber >= 1 && pageNumber <= totalPages && pageNumber !== currentPage) {
+                    setCurrentPage(pageNumber);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+
+            // Generate page numbers for display
+            const getPageNumbers = () => {
+                const pageNumbers = [];
+                const maxPageButtons = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
+                let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+
+                if (endPage - startPage + 1 < maxPageButtons) {
+                    startPage = Math.max(1, endPage - maxPageButtons + 1);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    pageNumbers.push(i);
+                }
+                return pageNumbers;
+            };
+
+            // Function to toggle abstract expansion
+            const toggleAbstract = (index) => {
+                setPublications(prevPublications =>
+                    prevPublications.map((pub, i) =>
+                        i === index ? { ...pub, isAbstractExpanded: !pub.isAbstractExpanded } : pub
+                    )
+                );
+            };
+
+            // Handle main field selection
+            const handleMainFieldChange = (e) => {
+                const code = e.target.value;
+                setSelectedMainField(code);
+                setSelectedSubcategory(''); // Reset subcategory when main field changes
+                // Do NOT clear topic or authorTopic here, they will be combined with category
+                setCurrentPage(1);
+                if (code) { // Only fetch if a valid main field is selected
+                    // fetchPublications will be triggered by useEffect
+                } else {
+                    setPublications([]); // Clear results if "Select a field" is chosen
+                    setTotalResults(0);
+                    setErrorAndShow(null); // Clear error
+                    setHasSearched(false);
+                    setCurrentPdfUrl(null); // Clear PDF viewer
+                    setSelectedImageUrl(null); // Clear image viewer
+                }
+            };
+
+            // Handle subcategory selection
+            const handleSubcategoryChange = (e) => {
+                const code = e.target.value;
+                setSelectedSubcategory(code);
+                // Do NOT clear topic or authorTopic here, they will be combined with category
+                setCurrentPage(1);
+                if (code) { // Only fetch if a valid subcategory is selected
+                    // fetchPublications will be triggered by useEffect
+                } else if (selectedMainField) { // If subcategory is cleared, search by main field
+                    // fetchPublications will be triggered by useEffect
+                } else {
+                    setPublications([]); // Clear results if "Select a subcategory" is chosen and no main field
+                    setTotalResults(0);
+                    setErrorAndShow(null); // Clear error
+                    setHasSearched(false);
+                    setCurrentPdfUrl(null); // Clear PDF viewer
+                    setSelectedImageUrl(null); // Clear image viewer
+                }
+            };
+
+            // Handle general topic search
+            const handleTopicSearch = () => {
+                setAuthorTopic(''); // Clear author search when topic search is initiated
+                setCurrentPage(1);
+                fetchPublications();
+            };
+
+            // Handle author search
+            const handleAuthorSearch = () => {
+                setTopic(''); // Clear topic search when author search is initiated
+                setCurrentPage(1);
+                fetchPublications();
+            };
+
+            // Function to handle "View PDF" button click
+            const handleViewPdf = (pdfLink) => {
+                setCurrentPdfUrl(pdfLink);
+            };
+
+            // Function to handle image thumbnail click
+            const handleImageClick = (imageUrl) => {
+                setSelectedImageUrl(imageUrl);
+            };
+
+            // Function to copy link to clipboard
+            const handleCopyLink = (link, type) => {
+                // Use document.execCommand('copy') as navigator.clipboard.writeText() might not work in some iframe environments
+                const tempInput = document.createElement('textarea');
+                tempInput.value = link;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                try {
+                    document.execCommand('copy');
+                    // Removed setErrorAndShow on success
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    setErrorAndShow(`Failed to copy ${type}. Please copy manually.`, true); // Error message
+                } finally {
+                    document.body.removeChild(tempInput);
+                }
+            };
+
+            // Get subcategories for the currently selected main field
+            const currentSubcategories = selectedMainField
+                ? physicsFields.find(field => field.code === selectedMainField)?.subcategories || []
+                : [];
+
+            // Determine the max-width class based on the selected resolution
+            const getResolutionClass = () => {
+                switch (resolution) {
+                    case '4k':
+                        return 'max-w-full';
+                    case '1080p':
+                        return 'max-w-screen-2xl'; // Approx 1536px
+                    default:
+                        return 'max-w-screen-2xl'; // Default to 1080p equivalent
+                }
+            };
+
+            // Determine column widths based on whether PDF viewer is active
+            const leftColClass = "md:w-1/5"; // 20%
+            let middleColClass = "md:w-4/5"; // Default 80%
+            let rightColClass = ""; // Initially empty
+
+            if (currentPdfUrl) { // Only PDF viewer affects right column
+                middleColClass = "md:w-2/5"; // 40% when right panel is active
+                rightColClass = "md:w-2/5"; // 40% for right panel
+            }
+
+            // BibTeX Generator Functions
+            const extractDoi = (url) => {
+                // Regex to capture "10." followed by 4 or more digits, then a slash,
+                // and then any characters that are typically part of a DOI suffix
+                // until a whitespace or the end of the string.
+                // This regex now also specifically handles arXiv DOIs.
+                const doiRegex = /(10\.\d{4,}\/(?:arXiv\.)?[a-zA-Z0-9\.\-\/_\(\)\[\]:]+)/i;
+                const match = url.match(doiRegex);
+
+                if (match && match[1]) {
+                    let doi = match[1];
+                    // Further clean up any trailing URL parameters or hashes that might have been captured
+                    doi = doi.replace(/[\?#].*$/, '');
+                    return doi;
+                }
+                return null;
+            };
+
+            const stripHtmlTags = (html) => {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                return doc.body.textContent || "";
+            };
+
+            const fetchBibtexFromDoi = async (doi) => {
+                // For arXiv DOIs, try to fetch from arXiv's .bib export
+                if (doi.includes('arXiv.')) {
+                    const arxivId = doi.split('arXiv.')[1];
+                    const arxivBibtexUrl = `https://arxiv.org/abs/${arxivId}.bib`;
+                    try {
+                        const response = await fetch(arxivBibtexUrl);
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch BibTeX from arXiv: ${response.status} - ${response.statusText}`);
+                        }
+                        // If direct bib fetch works, return it
+                        return await response.text();
+                    } catch (error) {
+                        console.error("Error fetching BibTeX from arXiv:", error);
+                        // Fallback to fetching metadata from arXiv API and constructing BibTeX
+                        try {
+                            const arxivApiUrl = `https://export.arxiv.org/api/query?id_list=${arxivId}`;
+                            const apiResponse = await fetch(arxivApiUrl);
+                            const apiText = await apiResponse.text();
+                            const apiXmlDoc = new DOMParser().parseFromString(apiText, "text/xml");
+                            const entry = apiXmlDoc.getElementsByTagName("entry")[0];
+
+                            const title = entry?.getElementsByTagName("title")[0]?.textContent || `arXiv:${arxivId}`;
+                            const authors = Array.from(entry?.getElementsByTagName("author") || []).map(
+                                author => author.getElementsByTagName("name")[0]?.textContent || 'Unknown Author'
+                            );
+                            const publishedDateRaw = entry?.getElementsByTagName("published")[0]?.textContent;
+                            const year = publishedDateRaw ? new Date(publishedDateRaw).getFullYear() : 'N/A';
+                            const month = publishedDateRaw ? new Date(publishedDateRaw).toLocaleString('en-US', { month: 'short' }).toLowerCase() : 'N/A';
+                            const primaryClassElement = entry?.getElementsByTagName("arxiv:primary_category")[0];
+                            const primaryClass = primaryClassElement ? primaryClassElement.getAttribute('term') : 'physics';
+                            const arxivUrl = `https://arxiv.org/abs/${arxivId}`;
+
+                            return `@article{${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().substring(0, 10)}${year},
+  title={${title.replace(/\s+/g, ' ').trim()}},
+  author={${authors.join(' and ')}},
+  year={${year}},
+  month={${month}},
+  eprint={${arxivId}},
+  archivePrefix={arXiv},
+  primaryClass={${primaryClass}},
+  url={${arxivUrl}},
+}`;
+                        } catch (apiError) {
+                            console.error("Further error fetching arXiv metadata for BibTeX fallback:", apiError);
+                            // Final fallback if even metadata API fails
+                            const year = arxivId.substring(0, 2);
+                            const month = arxivId.substring(2, 4);
+                            return `@article{arXiv:${arxivId.replace('.', '_')},
+  title={arXiv:${arxivId}},
+  author={Unknown Author},
+  year={20${year}},
+  month={${month}},
+  eprint={${arxivId}},
+  archivePrefix={arXiv},
+  primaryClass={physics},
+  url={https://arxiv.org/abs/${arxivId}},
+}`;
+                        }
+                    }
+                }
+
+                // For other DOIs, use Crossref API
+                const apiUrl = `https://api.crossref.org/works/${doi}/transform/application/x-bibtex`;
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/x-bibtex'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        let errorMessage = `Failed to fetch BibTeX for DOI: ${doi}.`;
+                        if (response.status === 404) {
+                            errorMessage += " DOI not found or invalid. Please double-check the URL or DOI.";
+                        } else if (response.status === 406) {
+                            errorMessage += " Content not available in BibTeX format for this DOI.";
+                        } else {
+                            errorMessage += ` HTTP error! Status: ${response.status} - ${response.statusText}.`;
+                        }
+                        const errorText = await response.text();
+                        console.error("Crossref API error response:", errorText);
+                        throw new Error(errorMessage);
+                    }
+
+                    let bibtex = await response.text();
+
+                    // --- Start of advanced BibTeX formatting ---
+                    bibtex = bibtex.replace(/[\n\t]/g, '').replace(/,\s*/g, ', ');
+                    const entryHeaderMatch = bibtex.match(/^(@\w+){([^,]+),/);
+                    let formattedBibtex = '';
+
+                    if (entryHeaderMatch) {
+                        const entryType = entryHeaderMatch[1];
+                        const entryKey = entryHeaderMatch[2];
+                        formattedBibtex += `${entryType}{${entryKey},\n`;
+
+                        const fieldsString = bibtex.substring(entryHeaderMatch[0].length, bibtex.length - 1).trim();
+                        const parsedFields = {};
+                        const fieldMatches = fieldsString.matchAll(/(\w+)\s*=\s*({.*?}|[^,{}]+)(?:,\s*|$)/g);
+                        for (const match of fieldMatches) {
+                            if (match[1] && match[2]) {
+                                parsedFields[match[1].toLowerCase()] = stripHtmlTags(match[2].trim());
+                            }
+                        }
+
+                        const desiredOrder = ['title', 'author', 'journal', 'volume', 'issue', 'pages', 'numpages', 'year', 'month', 'publisher', 'doi', 'url'];
+                        const addedFields = new Set();
+
+                        for (const key of desiredOrder) {
+                            if (parsedFields[key]) {
+                                let valueToFormat = parsedFields[key];
+                                if (key === 'title' || key === 'author') {
+                                    if (!valueToFormat.startsWith('{') || !valueToFormat.endsWith('}')) {
+                                        valueToFormat = `{${valueToFormat}}`;
+                                    }
+                                }
+                                formattedBibtex += `  ${key} = ${valueToFormat},\n`;
+                                addedFields.add(key);
+                            }
+                        }
+
+                        for (const key in parsedFields) {
+                            if (!addedFields.has(key)) {
+                                formattedBibtex += `  ${key} = ${parsedFields[key]},\n`;
+                            }
+                        }
+
+                        formattedBibtex = formattedBibtex.replace(/,\n$/, '\n');
+                        formattedBibtex += '}';
+                    } else {
+                        formattedBibtex = bibtex.replace(/,\s+/g, ',\n  ');
+                        formattedBibtex = bibtex.replace(/@(\w+){([^,]+),/g, '@$1{$2,\n  ');
+                        formattedBibtex = bibtex.replace(/,\n  }$/, '\n}');
+                    }
+                    bibtex = formattedBibtex;
+                    // --- End of advanced BibTeX formatting ---
+                    return bibtex;
+                } catch (error) {
+                    throw new Error(`An error occurred while fetching BibTeX: ${error.message}`);
+                }
+            };
+
+            const handleGenerateBibtex = async () => {
+                setBibtexOutput('');
+                setBibtexMessage('');
+                setIsBibtexError(false);
+
+                if (!bibtexUrlInput) {
+                    setBibtexMessageAndShow("Please enter a research article URL.", true);
+                    return;
+                }
+
+                setBibtexMessageAndShow("Generating BibTeX...", false);
+
+                const doi = extractDoi(bibtexUrlInput);
+
+                if (!doi) {
+                    setBibtexMessageAndShow("Could not find a valid DOI in the provided URL. Please ensure the URL contains a standard DOI format (e.g., doi.org/10.xxxx/yyyy) or manually enter the DOI.", true);
+                    return;
+                }
+
+                try {
+                    const bibtex = await fetchBibtexFromDoi(doi);
+                    setBibtexOutput(bibtex);
+                    setBibtexMessageAndShow("BibTeX generated successfully!", false);
+                } catch (error) {
+                    setBibtexMessageAndShow(error.message, true);
+                }
+            };
+
+            const handleCopyBibtex = () => {
+                if (bibtexOutput) {
+                    navigator.clipboard.writeText(bibtexOutput).then(() => {
+                        setBibtexMessageAndShow("BibTeX copied to clipboard!", false);
+                    }).catch(err => {
+                        console.error('Failed to copy BibTeX:', err);
+                        setBibtexMessageAndShow("Failed to copy BibTeX. Please copy manually.", true);
+                    });
+                } else {
+                    setBibtexMessageAndShow("No BibTeX to copy. Generate it first!", true);
+                }
+            };
+
+            const handleClearBibtex = () => {
+                setBibtexUrlInput('');
+                setBibtexOutput('');
+                setBibtexMessage('');
+                setIsBibtexError(false);
+                setBibtexMessageAndShow("Fields cleared.", false);
+            };
+
+            return (
+                <div className="min-h-screen p-4 sm:p-6 flex flex-col items-center">
+                    <div className={`w-full mx-auto rounded-xl shadow-lg p-6 sm:p-8 space-y-6 border ${getResolutionClass()} ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                            <h1 className={`text-4xl font-extrabold text-center sm:text-left ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+                                arXiview
+                            </h1>
+                            {/* Controls: Font Size, Font Family, Display Size, Theme Toggle */}
+                            <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
+                                {/* Font Size Dropdown */}
+                                <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Font Size:</span>
+                                <select
+                                    value={fontSizeScale}
+                                    onChange={(e) => setFontSizeScale(e.target.value)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${isDarkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-200 text-gray-700'}`}
+                                >
+                                    <option value="small">Small</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="large">Large</option>
+                                </select>
+
+                                {/* Font Family Dropdown */}
+                                <span className={`ml-4 text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Font Family:</span>
+                                <select
+                                    value={fontFamily}
+                                    onChange={(e) => setFontFamily(e.target.value)}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${isDarkMode ? 'bg-gray-600 text-gray-100' : 'bg-gray-200 text-gray-700'}`}
+                                >
+                                    <option value="sans-serif">Sans-serif</option>
+                                    <option value="serif">Serif</option>
+                                    <option value="monospace">Typewriter</option>
+                                </select>
+
+                                {/* Resolution Buttons */}
+                                <span className={`ml-4 text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Display Size:</span>
+                                <button
+                                    onClick={() => setResolution('4k')}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${resolution === '4k' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                                >
+                                    Enlarge
+                                </button>
+                                <button
+                                    onClick={() => setResolution('1080p')}
+                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors duration-200 ${resolution === '1080p' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                                >
+                                    Shrink
+                                </button>
+                            </div>
+                            {/* Theme Toggle Button */}
+                            <button
+                                onClick={() => setIsDarkMode(!isDarkMode)}
+                                className={`p-2 rounded-full transition-colors duration-300 ${isDarkMode ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                aria-label={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            >
+                                {isDarkMode ? (
+                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                        <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 4a1 1 0 011 1v1a1 1 0 11-2 0V7a1 1 0 011-1zm-4 5a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0V7a1 1 0 011-1zm3 8a6 6 0 10-12 0 6 6 0 0012 0zm-1 9a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0V7a1 1 0 011-1z" clipRule="evenodd"></path>
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Three-Column Layout */}
+                        <div className="flex flex-col md:flex-row gap-6">
+                            {/* Left Column: Field Browse, Image Preview, and BibTeX Generator */}
+                            <div className={`${leftColClass} p-4 rounded-xl border space-y-4 flex flex-col flex-shrink-0 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>Browse by Field:</h3>
+                                
+                                {/* Main Field Dropdown */}
+                                <div>
+                                    <label htmlFor="main-field-select" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Main Category:</label>
+                                    <select
+                                        id="main-field-select"
+                                        value={selectedMainField}
+                                        onChange={handleMainFieldChange}
+                                        className={`block w-full p-2 border rounded-lg shadow-sm focus:ring-blue-400 focus:border-blue-400 ${isDarkMode ? 'bg-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-800'}`}
+                                        disabled={loading}
+                                    >
+                                        <option value="">Select a field</option>
+                                        {physicsFields.map((field) => (
+                                            <option key={field.code} value={field.code}>
+                                                {field.name} ({field.code})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Subcategory Dropdown (conditionally rendered) */}
+                                {currentSubcategories.length > 0 && (
+                                    <div>
+                                        <label htmlFor="subcategory-select" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Subcategory:</label>
+                                        <select
+                                            id="subcategory-select"
+                                            value={selectedSubcategory}
+                                            onChange={handleSubcategoryChange}
+                                            className={`block w-full p-2 border rounded-lg shadow-sm focus:ring-blue-400 focus:border-blue-400 ${isDarkMode ? 'bg-gray-600 text-gray-100' : 'bg-white border-gray-300 text-gray-800'}`}
+                                            disabled={loading}
+                                        >
+                                            <option value="">All Subcategories</option>
+                                            {currentSubcategories.map((subcat) => (
+                                                <option key={subcat.code} value={subcat.code}>
+                                                    {subcat.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Image Preview Section */}
+                                {selectedImageUrl || (publications.length > 0 && publications.some(pub => pub.imageThumbnails.length > 0)) ? (
+                                    <div className="mt-auto pt-4"> {/* Pushes to bottom, adds top padding */}
+                                        <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>Figures:</h3>
+                                        {selectedImageUrl ? (
+                                            <div className="relative w-full border rounded-md overflow-hidden flex items-center justify-center min-h-[12rem]" style={{backgroundColor: 'white'}}> {/* Added inline style for white background */}
+                                                <img
+                                                    src={selectedImageUrl}
+                                                    alt="Selected Preview"
+                                                    className="block w-full h-auto object-contain" /* Ensure image is block and height is auto */
+                                                    onError={(e) => { e.target.style.display = 'none'; setErrorAndShow('Failed to load image preview.'); }}
+                                                />
+                                                <button
+                                                    onClick={() => setSelectedImageUrl(null)}
+                                                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200"
+                                                    title="Close Image Preview"
+                                                >
+                                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <p className={`text-center text-sm py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} style={{backgroundColor: 'white'}}> {/* Added inline style for white background */}
+                                                Click an image thumbnail to preview.
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : null} {/* Conditionally render the entire Figures section */}
+
+                                {/* BibTeX Generator Section (always in left column) */}
+                                <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                                    <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>BibTeX Generator:</h3>
+                                    <div>
+                                        <label htmlFor="bibtexArticleUrl" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Research Article URL:</label>
+                                        <input
+                                            type="text"
+                                            id="bibtexArticleUrl"
+                                            placeholder="e.g., https://doi.org/10.1038/s41586-023-06692-7"
+                                            className="bibtex-input"
+                                            value={bibtexUrlInput}
+                                            onChange={(e) => setBibtexUrlInput(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <button
+                                            onClick={handleGenerateBibtex}
+                                            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 ease-in-out text-sm font-medium flex-grow"
+                                        >
+                                            Generate
+                                        </button>
+                                        <button
+                                            onClick={handleCopyBibtex}
+                                            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200 ease-in-out text-sm font-medium flex-grow"
+                                        >
+                                            Copy
+                                        </button>
+                                        <button
+                                            onClick={handleClearBibtex}
+                                            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition duration-200 ease-in-out text-sm font-medium flex-grow"
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="bibtexOutput" className={`block text-sm font-medium mb-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Generated BibTeX:</label>
+                                        <textarea
+                                            id="bibtexOutput"
+                                            readOnly
+                                            placeholder="BibTeX output will appear here..."
+                                            className="bibtex-output"
+                                            value={bibtexOutput}
+                                        ></textarea>
+                                    </div>
+                                    {bibtexMessage && (
+                                        <div className={`bibtex-message-box ${isBibtexError ? 'error' : ''}`}>
+                                            {bibtexMessage}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Middle Column: Search Input and Publications Display */}
+                            <div className={`${middleColClass} space-y-6`}>
+                                {/* General Topic Search Input and Button Section */}
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <input
+                                        type="text"
+                                        value={topic}
+                                        onChange={(e) => {
+                                            setTopic(e.target.value);
+                                            // Clear other text search when this one is active, but NOT category dropdowns
+                                            setAuthorTopic('');
+                                            setCurrentPage(1);
+                                            setErrorAndShow(null); // Clear error on input change
+                                        }}
+                                        placeholder="Enter topic (e.g., 'artificial intelligence')"
+                                        className={`flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 shadow-sm transition duration-200 ease-in-out outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-700'}`}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleTopicSearch();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        onClick={handleTopicSearch}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity50 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? 'Searching...' : 'Search Topic'}
+                                    </button>
+                                </div>
+
+                                {/* Author Search Input and Button Section */}
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <input
+                                        type="text"
+                                        value={authorTopic}
+                                        onChange={(e) => {
+                                            setAuthorTopic(e.target.value);
+                                            // Clear other text search when this one is active, but NOT category dropdowns
+                                            setTopic('');
+                                            setCurrentPage(1);
+                                            setErrorAndShow(null); // Clear error on input change
+                                        }}
+                                        placeholder="Search by author (e.g., 'Albert Einstein')"
+                                        className={`flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 shadow-sm transition duration-200 ease-in-out outline-none ${isDarkMode ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400' : 'bg-white border-gray-300 text-gray-700'}`}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleAuthorSearch();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        onClick={handleAuthorSearch}
+                                        disabled={loading}
+                                        className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {loading ? 'Searching...' : 'Search Author'}
+                                    </button>
+                                </div>
+
+                                {/* Loading and Error Messages */}
+                                {loading && (
+                                    <div className={`flex justify-center items-center py-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current"></div>
+                                        <p className="ml-3 text-lg">Loading publications...</p>
+                                    </div>
+                                )}
+
+                                {currentErrorMessage && showError && ( // Only show error if showError is true
+                                    <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg relative text-sm" role="alert">
+                                        <strong className="font-bold">Message: </strong> {/* Changed "Error:" to "Message:" */}
+                                        <span className="block sm:inline">{currentErrorMessage}</span>
+                                    </div>
+                                )}
+
+                                {/* Publications Display Section */}
+                                <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                                    {publications.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {publications.map((pub, index) => (
+                                                <div key={index} className={`p-5 rounded-lg shadow-sm border hover:shadow-md transition duration-200 ease-in-out ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'}`}>
+                                                    <div className="flex items-center gap-2 mb-1"> {/* Flex container for title and copy button */}
+                                                        <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>{pub.title}</h2>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); handleCopyLink(pub.title, 'Title'); }}
+                                                            className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                            title="Copy Title"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                    <p className={`text-xs mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        <span className="font-medium">Published:</span> {pub.publishedDate}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mb-2"> {/* Flex container for authors and copy button */}
+                                                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            <span className="font-medium">Authors:</span>{' '}
+                                                            {pub.authors.map((author, authorIndex) => (
+                                                                <React.Fragment key={authorIndex}>
+                                                                    <a
+                                                                        href={`https://scholar.google.com/scholar?q=author:"${encodeURIComponent(author)}"`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className={`hover:underline ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                                                                    >
+                                                                        {author}
+                                                                    </a>
+                                                                    {authorIndex < pub.authors.length - 1 && ', '}
+                                                                </React.Fragment>
+                                                            ))}
+                                                        </p>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); handleCopyLink(pub.authors.join(', '), 'Authors'); }}
+                                                            className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                            title="Copy Authors"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                    {pub.doi && (
+                                                        <div className="flex items-center gap-2 mb-2"> {/* Flex container for Publisher DOI and copy button */}
+                                                            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                <span className="font-medium">Publisher DOI:</span>{' '}
+                                                                <a
+                                                                    href={`https://doi.org/${pub.doi}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className={`hover:underline ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                                                                >
+                                                                    {pub.doi}
+                                                                </a>
+                                                            </p>
+                                                            <button
+                                                                onClick={(e) => { e.preventDefault(); handleCopyLink(pub.doi, 'Publisher DOI'); }}
+                                                                className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                                title="Copy Publisher DOI"
+                                                            >
+                                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {pub.arxivDoiLink !== '#' && ( // Display the new arXiv DOI link
+                                                        <div className="flex items-center gap-2 mb-2"> {/* Flex container for arXiv DOI and copy button */}
+                                                            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                <span className="font-medium">arXiv DOI:</span>{' '}
+                                                                <a
+                                                                    href={pub.arxivDoiLink}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className={`hover:underline ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                                                                >
+                                                                    {pub.arxivDoiLink} {/* Display the full arXiv DOI link */}
+                                                                </a>
+                                                            </p>
+                                                            <button
+                                                                onClick={(e) => { e.preventDefault(); handleCopyLink(pub.arxivDoiLink, 'arXiv DOI'); }}
+                                                                className="p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                                title="Copy arXiv DOI"
+                                                            >
+                                                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    <p className={`text-sm leading-relaxed mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                        <span className="font-medium">Abstract:</span>{' '}
+                                                        {pub.isAbstractExpanded ? pub.abstract : `${pub.abstract.substring(0, 250)}...`}
+                                                        {pub.abstract.length > 250 && (
+                                                            <button
+                                                                onClick={() => toggleAbstract(index)}
+                                                                className={`ml-2 text-xs font-medium hover:underline focus:outline-none ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                                                            >
+                                                                {pub.isAbstractExpanded ? 'Show Less' : 'Read More'}
+                                                            </button>
+                                                        )}
+                                                    </p>
+                                                    {pub.journalRef && (
+                                                        <p className={`text-xs mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            <span className="font-medium">Journal Ref:</span>{' '}
+                                                            {pub.journalRef}
+                                                        </p>
+                                                    )}
+                                                    {pub.publisherLink && pub.publisherLink !== '#' && ( // Only show if publisherLink is available and not just '#'
+                                                        <p className={`text-xs mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            <span className="font-medium">Published in:</span>{' '}
+                                                            <a
+                                                                href={pub.publisherLink}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className={`hover:underline ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}
+                                                            >
+                                                                {pub.publisherLink}
+                                                            </a>
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {/* Image Thumbnails Section */}
+                                                    {pub.imageThumbnails.length > 0 && (
+                                                        <div className="mt-4">
+                                                            <p className={`text-xs font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Figures:</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {pub.imageThumbnails.map((imageUrl, imgIndex) => (
+                                                                    <a key={imgIndex} href={imageUrl} target="_blank" rel="noopener noreferrer"
+                                                                        onClick={(e) => { e.preventDefault(); handleImageClick(imageUrl); }}>
+                                                                        <img
+                                                                            src={imageUrl}
+                                                                            alt={`Figure ${imgIndex + 1}`}
+                                                                            className="w-20 h-20 object-contain rounded-md border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow duration-200"
+                                                                            onError={(e) => { e.target.style.display = 'none'; setErrorAndShow('Failed to load image preview.'); }}
+                                                                        />
+                                                                    </a>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex flex-wrap gap-2 mt-4">
+                                                        <a
+                                                            href={pub.pdfLink}
+                                                            onClick={(e) => {
+                                                                e.preventDefault(); // Prevent default link behavior
+                                                                handleViewPdf(pub.pdfLink);
+                                                            }}
+                                                            className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition duration-200 ease-in-out text-xs font-medium"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.414L14.586 5A2 2 0 0115 6.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd"></path>
+                                                            </svg>
+                                                            View PDF
+                                                        </a>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); handleCopyLink(pub.pdfLink, 'PDF'); }}
+                                                            className="ml-1 p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                            title="Copy PDF link"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                        </button>
+
+                                                        {pub.htmlLink !== '#' && (
+                                                            <>
+                                                                <a
+                                                                    href={pub.htmlLink}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center px-3 py-1.5 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition duration-200 ease-in-out text-xs font-medium dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                                >
+                                                                    <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                                        <path fillRule="evenodd" d="M12.316 3.051A1 1 0 0113 3v2a1 1 0 01-1 1H9a1 1 0 01-1-1V3a1 1 0 01.684-.949L12.316 3.051zM11 7a1 1 0 011 1v1a1 1 0 11-2 0V8a1 1 0 011-1zm-4 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0V7a1 1 0 011-1zm3 8a6 6 0 10-12 0 6 6 0 0012 0zm-1 9a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-4a1 1 0 011 1v1a1 1 0 11-2 0V7a1 1 0 011-1z" clipRule="evenodd"></path>
+                                                                    </svg>
+                                                                    View HTML
+                                                                </a>
+                                                                <button
+                                                                    onClick={(e) => { e.preventDefault(); handleCopyLink(pub.htmlLink, 'HTML'); }}
+                                                                    className="ml-1 p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                                    title="Copy HTML link"
+                                                                >
+                                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        <a
+                                                            href={pub.arxivAbstractLink}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center px-3 py-1.5 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition duration-200 ease-in-out text-xs font-medium dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                        >
+                                                            <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                                <path fillRule="evenodd" d="M10 2a8 8 0 100 16 8 8 0 000-16zM8.707 10.707a1 1 0 001.414 0L12 9.414l1.879 1.879a1 1 0 001.414-1.414L13.414 8l1.879-1.879a1 1 0 10-1.414-1.414L12 6.586 10.121 4.707a1 1 0 10-1.414 1.414L10.586 8 8.707 9.879a1 1 0 000 1.414z" clipRule="evenodd"></path>
+                                                            </svg>
+                                                            arXiv link
+                                                        </a>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); handleCopyLink(pub.arxivAbstractLink, 'arXiv'); }}
+                                                            className="ml-1 p-1 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500"
+                                                            title="Copy arXiv link"
+                                                        >
+                                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        !loading && currentErrorMessage && hasSearched && ( // Show error if it exists and a search was attempted
+                                            <p className={`text-center text-base py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {currentErrorMessage}
+                                            </p>
+                                        )
+                                    )}
+                                    {/* Initial message when no search has been performed */}
+                                    {!loading && !currentErrorMessage && !hasSearched && (
+                                        <p className={`text-center text-base py-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            Enter a topic or select a field to find recent arXiv papers.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <div className="flex justify-center items-center space-x-2 mt-6">
+                                        <button
+                                            onClick={goToPreviousPage}
+                                            disabled={currentPage === 1 || loading}
+                                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-200 ${
+                                                currentPage === 1 || loading
+                                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                                                    : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600'
+                                            }`}
+                                        >
+                                            Previous
+                                        </button>
+                                        {getPageNumbers().map(pageNumber => (
+                                            <button
+                                                key={pageNumber}
+                                                onClick={() => goToPage(pageNumber)}
+                                                className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-200 ${
+                                                    pageNumber === currentPage
+                                                        ? 'bg-blue-600 text-white dark:bg-blue-500'
+                                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                                                disabled={loading}
+                                            >
+                                                {pageNumber}
+                                            </button>
+                                        ))}
+                                        <button
+                                            onClick={goToNextPage}
+                                            disabled={currentPage === totalPages || loading}
+                                            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-200 ${
+                                                currentPage === totalPages || loading
+                                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                                                    : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-700 dark:hover:bg-blue-600'
+                                            }`}
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Right Column: PDF Viewer (conditionally rendered) */}
+                            {currentPdfUrl && (
+                                <div className={`${rightColClass} p-4 rounded-xl border space-y-4 flex flex-col flex-shrink-0 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                    <h3 className={`text-lg font-semibold mb-2 ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>PDF Viewer:</h3>
+                                    <div className="relative flex-grow h-[70vh]"> {/* Fixed height for the viewer */}
+                                        <iframe
+                                            src={currentPdfUrl}
+                                            className="w-full h-full rounded-md"
+                                            title="PDF Viewer"
+                                            onError={(e) => {
+                                                setErrorAndShow("Failed to load PDF. It might be corrupted or inaccessible.", true); // Pass true for error
+                                                setCurrentPdfUrl(null); // Clear URL on error
+                                            }}
+                                        ></iframe>
+                                        <button
+                                            onClick={() => window.open(currentPdfUrl, '_blank')}
+                                            className="absolute top-2 left-2 p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-200"
+                                            title="Open in New Window"
+                                        >
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"></path><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"></path></svg>
+                                        </button>
+                                        <button
+                                            onClick={() => setCurrentPdfUrl(null)}
+                                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors duration-200"
+                                            title="Close PDF"
+                                        >
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Placeholder for right column if both PDF and BibTeX are hidden */}
+                            {!currentPdfUrl && (
+                                <div className={`${rightColClass} p-4 rounded-xl border space-y-4 flex flex-col flex-shrink-0 ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
+                                    <p className={`text-center py-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Click "View PDF" on a publication to open the PDF viewer here.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        {/* Footer Note */}
+                        <div className={`flex justify-center items-center gap-4 text-center text-sm pt-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <span>|Sagnik Chatterjee|Google Gemini|</span>
+                            <a 
+                                href="mailto:sagnik2chatterjee@gmail.com" 
+                                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors duration-200 ${isDarkMode ? 'bg-gray-600 text-gray-100 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                            >
+                                Contact Me
+                            </a>
+                            <a href="https://www.linkedin.com/in/sagnik-chatterjee-09aaa5176/?originalSubdomain=in" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn Profile" className={`p-2 rounded-full transition-colors duration-200 ${isDarkMode ? 'bg-gray-600 text-gray-100 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.25 6.5 1.75 1.75 0 016.5 8.25zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.62 1.62 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"></path>
+                                    </svg>
+                                </a>
+                                <a href="https://x.com/sagnikc2803?lang=en" target="_blank" rel="noopener noreferrer" aria-label="Twitter Profile" className={`p-2 rounded-full transition-colors duration-200 ${isDarkMode ? 'bg-gray-600 text-gray-100 hover:bg-gray-500' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                                    </svg>
+                                </a>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the App component into the 'root' div
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
